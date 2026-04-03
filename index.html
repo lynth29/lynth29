@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Onboarding Usage vs AHA Rate</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --bg: #191919;
+  --s1: #1f1f1f;
+  --s2: #2f2f2f;
+  --bd: #ffffff14;
+  --t1: #ffffffcf;
+  --t2: #ffffff9e;
+  --t3: #ffffff5e;
+  --t4: #ffffff3d;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: var(--bg); color: var(--t1); font-family: 'Inter', -apple-system, sans-serif; -webkit-font-smoothing: antialiased; }
+
+.page { max-width: 1100px; margin: 0 auto; padding: 48px 48px 60px; }
+
+/* Header */
+.icon { font-size: 36px; margin-bottom: 6px; }
+.title { font-size: 30px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.2; }
+.desc { color: var(--t3); font-size: 13px; margin: 4px 0 24px; line-height: 1.6; }
+
+/* Callout */
+.callout { display: flex; gap: 10px; padding: 14px 16px; border-radius: 4px; background: var(--s2); margin-bottom: 24px; font-size: 13px; line-height: 1.7; }
+.callout-icon { flex-shrink: 0; font-size: 16px; }
+.callout-text { color: var(--t2); }
+.callout-text b { color: var(--t1); font-weight: 600; }
+
+/* Legend */
+.legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+.leg-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--t3); cursor: pointer; padding: 3px 8px; border-radius: 4px; transition: all .15s; user-select: none; }
+.leg-item:hover { background: #ffffff0a; }
+.leg-item.off { opacity: 0.3; }
+.leg-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+/* Chart */
+.chart-wrap { position: relative; width: 100%; aspect-ratio: 16/10; background: var(--s1); border-radius: 6px; border: 1px solid var(--bd); overflow: hidden; }
+.chart-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+/* Tooltip */
+.tt { position: fixed; pointer-events: none; z-index: 999; display: none;
+      background: #2c2c2c; border: 1px solid #ffffff20; border-radius: 6px;
+      padding: 10px 14px; font-size: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      max-width: 280px; line-height: 1.6; }
+.tt-name { font-weight: 700; font-size: 13px; margin-bottom: 2px; }
+.tt-group { font-size: 11px; color: var(--t3); margin-bottom: 6px; }
+.tt-row { display: flex; justify-content: space-between; gap: 16px; }
+.tt-label { color: var(--t3); }
+.tt-val { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* Quadrant labels */
+.qlabel { position: absolute; font-size: 10px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; color: var(--t4); pointer-events: none; }
+
+/* Annotation */
+.annotation { position: absolute; font-size: 11px; font-weight: 600; color: #ffffffa0; pointer-events: none; 
+              padding: 3px 8px; border-radius: 4px; background: #ffffff0a; border: 1px dashed #ffffff18; }
+
+@media (max-width: 768px) {
+  .page { padding: 24px 16px 40px; }
+  .title { font-size: 22px; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="icon">🎯</div>
+  <div class="title">New Merchant Usage vs AHA Rate</div>
+  <div class="desc">
+    Trục X — <b>Tỷ lệ New Merchant sử dụng tính năng trong 7 ngày đầu onboard</b> · 
+    Trục Y — <b>Tỷ lệ AHA (≥5 đơn trong ngày 8–14 kể từ đơn đầu tiên)</b> · 
+    Bubble size — Số lượng New Merchant
+  </div>
+
+  <div class="callout">
+    <div class="callout-icon">⭐</div>
+    <div class="callout-text">
+      <b>Góc trên-trái = Gold Zone</b> — tính năng ít merchant dùng sớm nhưng AHA rate rất cao. 
+      Đây là nhóm nên đẩy trong onboarding flow vì merchant chưa biết nhưng dùng rồi thì nhận ra giá trị nhanh.
+    </div>
+  </div>
+
+  <div class="legend" id="legend"></div>
+  <div class="chart-wrap"><canvas class="chart-canvas" id="chart"></canvas></div>
+</div>
+
+<div class="tt" id="tt"></div>
+
+<script>
+const DATA = [{"group":"Bán hàng","name":"Bán hàng","newCount":6655,"newPct":96.5,"ahaPct":76.0,"onboard":96.0,"freq":23.6},{"group":"Bán hàng","name":"Bảng giá","newCount":493,"newPct":7.1,"ahaPct":90.3,"onboard":93.3,"freq":15.4},{"group":"Bán hàng","name":"Đặt bàn","newCount":74,"newPct":1.1,"ahaPct":81.1,"onboard":42.0,"freq":3.3},{"group":"Bán hàng","name":"Kênh bán hàng","newCount":260,"newPct":3.8,"ahaPct":86.5,"onboard":31.5,"freq":2.7},{"group":"Bán hàng","name":"Order","newCount":6728,"newPct":97.5,"ahaPct":74.4,"onboard":95.7,"freq":23.7},{"group":"Online / Order","name":"eMenu","newCount":142,"newPct":2.1,"ahaPct":81.7,"onboard":42.7,"freq":4.9},{"group":"Online / Order","name":"Grab Food","newCount":73,"newPct":1.1,"ahaPct":90.4,"onboard":97.7,"freq":15.8},{"group":"Online / Order","name":"Mang đi","newCount":141,"newPct":2.0,"ahaPct":83.7,"onboard":64.9,"freq":5.1},{"group":"Online / Order","name":"ShopeeFood","newCount":65,"newPct":0.9,"ahaPct":90.8,"onboard":94.1,"freq":13.7},{"group":"Online / Order","name":"Web Order","newCount":82,"newPct":1.2,"ahaPct":81.7,"onboard":56.7,"freq":4.0},{"group":"Online / Order","name":"Zalo Order","newCount":26,"newPct":0.4,"ahaPct":73.1,"onboard":35.6,"freq":3.1},{"group":"Giao hàng","name":"Giao hàng ngoài","newCount":71,"newPct":1.0,"ahaPct":85.9,"onboard":74.4,"freq":8.0},{"group":"HĐĐT","name":"HĐĐT kênh ngoài","newCount":71,"newPct":1.0,"ahaPct":74.6,"onboard":84.3,"freq":16.3},{"group":"HĐĐT","name":"HĐĐT KiotViet","newCount":459,"newPct":6.7,"ahaPct":76.3,"onboard":91.4,"freq":16.4},{"group":"KH & NCC","name":"Công nợ","newCount":180,"newPct":2.6,"ahaPct":77.8,"onboard":99.3,"freq":27.2},{"group":"KH & NCC","name":"KH trên hóa đơn","newCount":882,"newPct":12.8,"ahaPct":79.6,"onboard":73.2,"freq":9.8},{"group":"KH & NCC","name":"Tạo khách hàng","newCount":1228,"newPct":17.8,"ahaPct":76.1,"onboard":54.4,"freq":4.7},{"group":"KH & NCC","name":"Tạo nhà cung cấp","newCount":616,"newPct":8.9,"ahaPct":75.8,"onboard":42.3,"freq":1.7},{"group":"Menu","name":"Chế biến","newCount":736,"newPct":10.7,"ahaPct":80.4,"onboard":90.5,"freq":19.4},{"group":"Menu","name":"Combo","newCount":155,"newPct":2.2,"ahaPct":88.4,"onboard":84.1,"freq":11.0},{"group":"Menu","name":"Dịch vụ","newCount":4988,"newPct":72.3,"ahaPct":77.0,"onboard":93.6,"freq":21.7},{"group":"Menu","name":"Hàng sản xuất","newCount":228,"newPct":3.3,"ahaPct":89.9,"onboard":89.9,"freq":13.3},{"group":"Menu","name":"Thuộc tính SP","newCount":1045,"newPct":15.2,"ahaPct":83.7,"onboard":92.9,"freq":17.5},{"group":"Menu","name":"Tính theo giờ","newCount":853,"newPct":12.4,"ahaPct":85.2,"onboard":92.8,"freq":22.9},{"group":"Menu","name":"Topping","newCount":1219,"newPct":17.7,"ahaPct":87.6,"onboard":88.1,"freq":12.3},{"group":"Nhân sự","name":"Bảng lương","newCount":831,"newPct":12.0,"ahaPct":84.2,"onboard":62.9,"freq":1.1},{"group":"Nhân sự","name":"Ca làm việc","newCount":1120,"newPct":16.2,"ahaPct":84.6,"onboard":22.6,"freq":1.2},{"group":"Nhân sự","name":"Chấm công","newCount":553,"newPct":8.0,"ahaPct":86.3,"onboard":78.4,"freq":13.9},{"group":"Nhân sự","name":"Nhân viên","newCount":1447,"newPct":21.0,"ahaPct":84.2,"onboard":31.5,"freq":1.3},{"group":"Quản lý kho","name":"Kiểm kho","newCount":1388,"newPct":20.1,"ahaPct":85.4,"onboard":57.0,"freq":3.4},{"group":"Quản lý kho","name":"Nhập hàng","newCount":1400,"newPct":20.3,"ahaPct":79.8,"onboard":63.5,"freq":6.5},{"group":"Quản lý kho","name":"Tồn kho","newCount":1501,"newPct":21.8,"ahaPct":79.1,"onboard":99.2,"freq":24.7},{"group":"Quản lý kho","name":"Trả hàng bán","newCount":52,"newPct":0.8,"ahaPct":96.2,"onboard":24.8,"freq":1.9},{"group":"Quản lý kho","name":"Xuất hủy","newCount":86,"newPct":1.2,"ahaPct":83.7,"onboard":53.0,"freq":3.8},{"group":"Thanh toán ĐT","name":"MoMo","newCount":22,"newPct":0.3,"ahaPct":95.5,"onboard":84.3,"freq":8.9},{"group":"Thanh toán ĐT","name":"VietQR","newCount":1392,"newPct":20.2,"ahaPct":91.0,"onboard":90.5,"freq":14.7},{"group":"Vận hành","name":"Báo cáo BI","newCount":2197,"newPct":31.9,"ahaPct":85.0,"onboard":46.1,"freq":2.3},{"group":"Vận hành","name":"In bếp","newCount":4742,"newPct":68.8,"ahaPct":80.8,"onboard":73.6,"freq":15.1},{"group":"Vận hành","name":"Kết ca","newCount":534,"newPct":7.7,"ahaPct":91.8,"onboard":86.9,"freq":19.8},{"group":"Vận hành","name":"QL Bàn/Phòng","newCount":6087,"newPct":88.3,"ahaPct":78.7,"onboard":96.4,"freq":23.1}];
+
+const GROUPS = [...new Set(DATA.map(d=>d.group))];
+const PALETTE = {
+  'Bán hàng':'#529cca','Online / Order':'#9a70d4','Giao hàng':'#d2813f',
+  'HĐĐT':'#4dab6f','KH & NCC':'#c95f8f','Menu':'#cb9731',
+  'Nhân sự':'#44b8b8','Quản lý kho':'#e06c60','Thanh toán ĐT':'#6cc070',
+  'Vận hành':'#a07553'
+};
+const tt = document.getElementById('tt');
+let hiddenGroups = new Set();
+
+// Legend
+const legend = document.getElementById('legend');
+GROUPS.forEach(g => {
+  const el = document.createElement('div');
+  el.className = 'leg-item';
+  el.innerHTML = `<div class="leg-dot" style="background:${PALETTE[g]||'#888'}"></div>${g}`;
+  el.onclick = () => {
+    if(hiddenGroups.has(g)) hiddenGroups.delete(g); else hiddenGroups.add(g);
+    el.classList.toggle('off');
+    draw();
+  };
+  legend.appendChild(el);
+});
+
+// Chart
+const canvas = document.getElementById('chart');
+const ctx = canvas.getContext('2d');
+let W, H;
+const pad = { t: 36, r: 32, b: 48, l: 56 };
+
+function resize() {
+  const rect = canvas.parentElement.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  W = rect.width; H = rect.height;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  draw();
+}
+
+function cx(v) { return pad.l + (W - pad.l - pad.r) * (v / 100); }
+function cy(v) { return pad.t + (H - pad.t - pad.b) * (1 - (v - 65) / 35); } // Y: 65%–100%
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  const visible = DATA.filter(d => !hiddenGroups.has(d.group));
+
+  // Grid
+  ctx.strokeStyle = '#ffffff0c'; ctx.lineWidth = 1;
+  for (let y = 70; y <= 100; y += 5) {
+    const py = cy(y);
+    ctx.beginPath(); ctx.moveTo(pad.l, py); ctx.lineTo(W - pad.r, py); ctx.stroke();
+    ctx.fillStyle = '#ffffff4d'; ctx.font = '10px Inter'; ctx.textAlign = 'right';
+    ctx.fillText(y + '%', pad.l - 8, py + 3);
+  }
+  for (let x = 0; x <= 100; x += 10) {
+    const px = cx(x);
+    ctx.beginPath(); ctx.moveTo(px, pad.t); ctx.lineTo(px, H - pad.b); ctx.stroke();
+    ctx.fillStyle = '#ffffff4d'; ctx.font = '10px Inter'; ctx.textAlign = 'center';
+    ctx.fillText(x + '%', px, H - pad.b + 16);
+  }
+
+  // Quadrant dividers (median lines)
+  const medX = 10; // threshold: 10% new usage
+  const medY = 85; // threshold: 85% AHA
+  ctx.setLineDash([4, 4]); ctx.strokeStyle = '#ffffff20'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cx(medX), pad.t); ctx.lineTo(cx(medX), H - pad.b); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(pad.l, cy(medY)); ctx.lineTo(W - pad.r, cy(medY)); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Quadrant labels
+  ctx.font = '600 9px Inter'; ctx.fillStyle = '#ffffff25'; ctx.letterSpacing = '0.5px';
+  ctx.textAlign = 'left'; ctx.fillText('⭐ LOW USAGE · HIGH AHA', pad.l + 6, pad.t + 14);
+  ctx.textAlign = 'right'; ctx.fillText('HIGH USAGE · HIGH AHA ✅', W - pad.r - 6, pad.t + 14);
+  ctx.textAlign = 'left'; ctx.fillText('⚠️ LOW USAGE · LOW AHA', pad.l + 6, H - pad.b - 6);
+  ctx.textAlign = 'right'; ctx.fillText('HIGH USAGE · LOW AHA 🔍', W - pad.r - 6, H - pad.b - 6);
+
+  // Gold zone highlight
+  ctx.fillStyle = '#ffd70008';
+  ctx.fillRect(pad.l, pad.t, cx(medX) - pad.l, cy(medY) - pad.t);
+
+  // Axis labels
+  ctx.fillStyle = '#ffffff5e'; ctx.font = '600 11px Inter'; ctx.textAlign = 'center';
+  ctx.fillText('Tỷ lệ New Merchant SD trong 7 ngày đầu →', pad.l + (W - pad.l - pad.r) / 2, H - 6);
+  ctx.save(); ctx.translate(14, pad.t + (H - pad.t - pad.b) / 2);
+  ctx.rotate(-Math.PI / 2); ctx.fillText('Tỷ lệ AHA (≥5 đơn ngày 8–14) →', 0, 0);
+  ctx.restore();
+
+  // Bubbles — draw smaller first, larger on top
+  const maxN = Math.max(...visible.map(d => d.newCount));
+  const sorted = [...visible].sort((a, b) => b.newCount - a.newCount);
+
+  sorted.forEach(d => {
+    const x = cx(d.newPct);
+    const y = cy(d.ahaPct);
+    const r = 5 + Math.sqrt(d.newCount / maxN) * 26;
+    const color = PALETTE[d.group] || '#888';
+
+    // Shadow
+    ctx.beginPath(); ctx.arc(x, y, r + 1, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fill();
+
+    // Bubble
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = color + '55'; ctx.fill();
+    ctx.strokeStyle = color + 'aa'; ctx.lineWidth = 1.5; ctx.stroke();
+
+    // Label for notable features
+    if (d.newCount >= 400 || d.ahaPct >= 88 || (d.newPct < 10 && d.ahaPct > 82)) {
+      ctx.font = '500 10px Inter';
+      ctx.fillStyle = '#ffffffb0';
+      ctx.textAlign = d.newPct > 50 ? 'right' : 'left';
+      const lx = d.newPct > 50 ? x - r - 4 : x + r + 4;
+      ctx.fillText(d.name, lx, y + 3);
+    }
+  });
+
+  // Store for hover
+  window._dots = sorted.map(d => ({
+    ...d,
+    px: cx(d.newPct), py: cy(d.ahaPct),
+    r: 5 + Math.sqrt(d.newCount / maxN) * 26
+  }));
+}
+
+// Hover
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const dots = window._dots || [];
+  let hit = null;
+  for (const d of dots) {
+    const dx = mx - d.px, dy = my - d.py;
+    if (dx * dx + dy * dy <= d.r * d.r) { hit = d; break; }
+  }
+  if (hit) {
+    canvas.style.cursor = 'pointer';
+    tt.style.display = 'block';
+    tt.innerHTML = `
+      <div class="tt-name" style="color:${PALETTE[hit.group]||'#fff'}">${hit.name}</div>
+      <div class="tt-group">${hit.group}</div>
+      <div class="tt-row"><span class="tt-label">New Merchant SD</span><span class="tt-val">${hit.newCount.toLocaleString()} (${hit.newPct}%)</span></div>
+      <div class="tt-row"><span class="tt-label">Tỷ lệ AHA</span><span class="tt-val">${hit.ahaPct}%</span></div>
+      <div class="tt-row"><span class="tt-label">Onboarding %</span><span class="tt-val">${hit.onboard}%</span></div>
+      <div class="tt-row"><span class="tt-label">Tần suất SD</span><span class="tt-val">${hit.freq} ngày/tháng</span></div>`;
+    tt.style.left = (e.clientX + 14) + 'px';
+    tt.style.top = (e.clientY - 10) + 'px';
+  } else {
+    canvas.style.cursor = 'default';
+    tt.style.display = 'none';
+  }
+});
+canvas.addEventListener('mouseleave', () => { tt.style.display = 'none'; });
+
+window.addEventListener('resize', resize);
+resize();
+</script>
+</body>
+</html>
